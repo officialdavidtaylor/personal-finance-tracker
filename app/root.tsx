@@ -1,10 +1,16 @@
+import { LinksFunction } from '@remix-run/node';
 import {
   Links,
   Meta,
   Outlet,
   Scripts,
   ScrollRestoration,
-} from "@remix-run/react";
+} from '@remix-run/react';
+import stylesheet from '~/tailwind.css?url';
+
+export const links: LinksFunction = () => [
+  { rel: 'stylesheet', href: stylesheet },
+];
 
 export default function App() {
   return (
@@ -15,7 +21,7 @@ export default function App() {
         <Meta />
         <Links />
       </head>
-      <body>
+      <body className="mx-auto max-w-3xl px-2 md:px-0">
         <Outlet />
         <ScrollRestoration />
         <Scripts />
