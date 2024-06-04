@@ -13,15 +13,22 @@
     "typecheck": "tsc"
   },
   "dependencies": {
+    "@hookform/resolvers": "^3.4.2",
     "@netlify/functions": "^2.6.0",
     "@netlify/remix-adapter": "^2.3.1",
     "@prisma/client": "^5.14.0",
     "@remix-run/node": "^2.9.2",
     "@remix-run/react": "^2.9.2",
     "@remix-run/serve": "^2.9.2",
+    "@supabase/ssr": "^0.3.0",
     "cva": "npm:class-variance-authority@^0.7.0",
     "dotenv-cli": "^7.4.2",
-    "isbot": "^4.1.0"
+    "isbot": "^4.1.0",
+    "lucide-react": "^0.381.0",
+    "react-hook-form": "^7.51.5",
+    "remix-auth": "^3.7.0",
+    "remix-auth-form": "^1.5.0",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
     "@faker-js/faker": "^8.4.1",
