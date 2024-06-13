@@ -39,7 +39,7 @@ export default function App() {
       </head>
       <body className="mx-auto max-w-3xl bg-gray-100 px-2 md:px-0">
         <nav className="flex w-full items-center justify-between py-2">
-          <a href="/">
+          <a href={isAuthenticated ? '/dashboard' : '/'}>
             <h1 className="text-xl font-bold text-slate-500">
               Personal Finance Tracker
             </h1>

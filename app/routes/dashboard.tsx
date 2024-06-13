@@ -1,5 +1,5 @@
 import { authenticator } from '~/services/auth.server';
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, Plus } from 'lucide-react';
 import { cx } from 'cva';
 import { PrismaClient } from '@prisma/client';
 import { useLoaderData } from '@remix-run/react';
@@ -142,6 +142,14 @@ export default function Index() {
           <ChevronRight className="stroke-white" />
         </Link>
       </div>
+      <Link
+        variant="primaryButton"
+        className="flex w-fit gap-2 self-center"
+        to={'/bulk-add-transactions'}
+      >
+        <span>Add Transactions</span>
+        <Plus />
+      </Link>
       <div className="pb-4">
         <h1 className="pb-2 text-lg font-semibold">Recent Transactions</h1>
         {transactions.length > 0 ? (
