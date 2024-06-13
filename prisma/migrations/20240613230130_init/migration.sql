@@ -40,7 +40,8 @@ CREATE TABLE "Transaction" (
     "merchantId" UUID NOT NULL,
     "amount" INTEGER NOT NULL,
     "description" TEXT,
-    "transactedAt" TIMESTAMP(3) NOT NULL,
+    "postedAt" TIMESTAMP(3) NOT NULL,
+    "transactedAt" TIMESTAMP(3),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "Transaction_pkey" PRIMARY KEY ("id")

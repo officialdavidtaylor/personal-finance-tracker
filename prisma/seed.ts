@@ -21,7 +21,8 @@ async function main() {
       merchants: [] as { id: string; title: string }[],
       transactions: [] as {
         amount: number;
-        transactedAt: Date;
+        postedAt: Date;
+        transactedAt: Date | null;
         accountId: string;
         merchantId: string;
       }[],
@@ -51,10 +52,11 @@ async function main() {
           i % 10 === 0
             ? faker.number.int({ min: 45, max: 2600 })
             : faker.number.int({ min: -2000, max: -0.5 }),
-        transactedAt: faker.date.between({
+        postedAt: faker.date.between({
           from: '2024-01-01T00:00:00.000Z',
           to: '2024-05-31T00:00:00.000Z',
         }),
+        transactedAt: null,
         accountId: profile.accounts[Math.floor(Math.random() * 10)].id,
         merchantId: profile.merchants[Math.floor(Math.random() * 10)].id,
       });
@@ -108,6 +110,7 @@ async function main() {
           amount: transaction.amount,
           merchantId: transaction.merchantId,
           accountId: transaction.accountId,
+          postedAt: transaction.postedAt,
           transactedAt: transaction.transactedAt,
           userId: user.id,
         },

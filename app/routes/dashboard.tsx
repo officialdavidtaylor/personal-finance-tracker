@@ -43,7 +43,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         lt: 0,
       },
       // only include transactions from the previous month
-      transactedAt: {
+      postedAt: {
         gte: firstDayOfLastMonth.toISOString(),
         lte: firstDayOfCurrentMonth.toISOString(),
       },
@@ -59,7 +59,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         gt: 0,
       },
       // only include transactions from the previous month
-      transactedAt: {
+      postedAt: {
         gte: firstDayOfLastMonth.toISOString(),
         lte: firstDayOfCurrentMonth.toISOString(),
       },
@@ -70,11 +70,11 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   // fetch the most recent 10 transactions
   const transactions = await prisma.transaction.findMany({
     where: { userId: user.id },
-    orderBy: { transactedAt: 'desc' },
+    orderBy: { postedAt: 'desc' },
     select: {
       id: true,
       amount: true,
-      transactedAt: true,
+      postedAt: true,
       merchant: { select: { title: true } },
       account: { select: { title: true } },
     },

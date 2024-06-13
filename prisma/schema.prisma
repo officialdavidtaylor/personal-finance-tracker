@@ -55,7 +55,8 @@ model Transaction {
   merchantId   String                  @db.Uuid
   amount       Int
   description  String?
-  transactedAt DateTime
+  postedAt     DateTime
+  transactedAt DateTime?
   createdAt    DateTime                @default(now())
   categories   TransactionByCategory[]
 
