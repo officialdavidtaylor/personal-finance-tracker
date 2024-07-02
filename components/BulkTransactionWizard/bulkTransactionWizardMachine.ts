@@ -19,6 +19,7 @@ import {
 } from 'components/MatchFileColumnFields/MatchFileColumnFields';
 import { createMerchant } from '~/routes/api.createMerchant';
 import { getMerchants } from '~/routes/api.getMerchants';
+import { ConfirmAmountSign } from 'components/ConfirmAmountSign';
 
 export interface ParsedFileData {
   headerRow: string[];
@@ -34,6 +35,13 @@ type BulkTransactionInputMachineContext = {
   accountId?: string;
   columnFieldMap?: ColumnFieldMap;
   parsedFileData?: ParsedFileData;
+  /**
+   * Amounts are stored in the database in cents, so this will typically be 100.
+   * In some cases vendors will reverse the sign of the amount (a credit card
+   * charge will be listed as a positive, and a payment as a negative), so this
+   * value can compensate for that too.
+   */
+  amountTransformationFactor: number;
   currentRowIndex: number;
   confirmedFileData: BulkCreateTransactionRecord;
   normalizedDataWithMerchantIDs?: BulkCreateTransactionRecord;
@@ -54,6 +62,7 @@ type BulkTransactionInputMachineEvents =
       type: 'CREATE_MERCHANT';
       merchantData: Omit<z.infer<typeof createMerchantRecordSchema>, 'userId'>;
     }
+  | { type: 'SUBMIT_AMOUNT_TRANSFORMATION_FACTOR'; factor: number }
   | { type: 'SUBMIT_COLUMN_FIELD_MAP'; columnFieldMap: ColumnFieldMap }
   | {
       type: 'SET_CONFIRMED_FILE_DATA';
@@ -124,6 +133,7 @@ export const bulkTransactionInputMachine = setup({
     merchants: [],
     currentRowIndex: 0,
     confirmedFileData: [],
+    amountTransformationFactor: 100,
   },
   initial: 'collectTransactionFile',
   states: {
@@ -225,6 +235,37 @@ export const bulkTransactionInputMachine = setup({
           actions: [
             assign(({ event }) => ({ columnFieldMap: event.columnFieldMap })),
           ],
+          target: 'confirmAmountSign',
+        },
+      },
+    },
+
+    confirmAmountSign: {
+      entry: [
+        assign(({ context }) => ({
+          StateUI: ({ send }) => {
+            // transform the parsed file data into the format necessary for the component:
+            const descriptionAndAmountData =
+              // lots of type coercion because we previously set this value in the state machine
+              context.parsedFileData!.bodyRows.map((row) => ({
+                amount: row[context.columnFieldMap!.amount],
+                description: row[context.columnFieldMap!.description!],
+              }));
+
+            return ConfirmAmountSign({
+              send,
+              descriptionAndAmountData,
+            });
+          },
+        })),
+      ],
+      on: {
+        SUBMIT_AMOUNT_TRANSFORMATION_FACTOR: {
+          actions: [
+            assign(({ event }) => ({
+              amountTransformationFactor: event.factor,
+            })),
+          ],
           target: 'fetchMerchants',
         },
       },
@@ -275,7 +316,7 @@ export const bulkTransactionInputMachine = setup({
                       parsedFileData.bodyRows[currentRowIndex][
                         columnFieldMap.amount
                       ].replace(/[$]/i, '')
-                    ) * 100
+                    ) * context.amountTransformationFactor
                   ).toFixed(0)
                 ),
                 accountId: context.accountId,
