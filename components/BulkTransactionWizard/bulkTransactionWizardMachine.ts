@@ -280,9 +280,20 @@ export const bulkTransactionInputMachine = setup({
       invoke: {
         src: 'bulkCreateTransactions',
         input: ({ context }) => ({
-          transactions: context.normalizedDataWithMerchantIDs!,
+          transactions: context.normalizedTransactionData!,
         }),
-        onDone: 'done',
+        onDone: 'successScreen',
+        // TODO: consider making the error handling more user-friendly
+        onError: 'collectTransactionFile',
+      },
+    },
+
+    successScreen: {
+      entry: [
+        assign(() => ({ StateUI: ({ send }) => BulkUploadSuccess({ send }) })),
+      ],
+      on: {
+        EXIT_WIZARD: { target: 'done' },
       },
     },
 
