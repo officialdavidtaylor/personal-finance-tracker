@@ -4,22 +4,17 @@ import { CollectTransactionFile } from '../CollectTransactionFile/CollectTransac
 import { createAccount } from '~/routes/api.createAccount';
 import { createAccountRecordSchema } from 'prisma/validators';
 import { getAccounts } from '~/routes/api.getAccounts';
-import { MerchantSelector } from 'components/MerchantSelector';
 import { parseFileAsync } from '~/utils/parseFileAsync';
 import { SelectAccount } from '../SelectAccount/SelectAccount';
 import { z } from 'zod';
-import type { Account, Merchant } from '@prisma/client';
-import type {
-  BulkCreateTransactionRecord,
-  createMerchantRecordSchema,
-} from 'prisma/validators';
+import type { Account } from '@prisma/client';
+import type { BulkCreateTransactionRecord } from 'prisma/validators';
 import {
   MatchFileColumnFields,
   type ColumnFieldMap,
 } from 'components/MatchFileColumnFields/MatchFileColumnFields';
-import { createMerchant } from '~/routes/api.createMerchant';
-import { getMerchants } from '~/routes/api.getMerchants';
 import { ConfirmAmountSign } from 'components/ConfirmAmountSign';
+import { BulkUploadSuccess } from 'components/BulkUploadSuccess';
 
 export interface ParsedFileData {
   headerRow: string[];
@@ -30,8 +25,6 @@ type BulkTransactionInputMachineContext = {
   StateUI: ClosureComponent;
   transactionFile?: File;
   accounts: Account[];
-  merchants: Merchant[];
-  newMerchant?: Omit<z.infer<typeof createMerchantRecordSchema>, 'userId'>;
   accountId?: string;
   columnFieldMap?: ColumnFieldMap;
   parsedFileData?: ParsedFileData;
@@ -43,8 +36,7 @@ type BulkTransactionInputMachineContext = {
    */
   amountTransformationFactor: number;
   currentRowIndex: number;
-  confirmedFileData: BulkCreateTransactionRecord;
-  normalizedDataWithMerchantIDs?: BulkCreateTransactionRecord;
+  normalizedTransactionData: BulkCreateTransactionRecord;
 };
 
 type BulkTransactionInputMachineEvents =
@@ -58,20 +50,9 @@ type BulkTransactionInputMachineEvents =
       type: 'CREATE_ACCOUNT';
       accountData: Omit<z.infer<typeof createAccountRecordSchema>, 'userId'>;
     }
-  | {
-      type: 'CREATE_MERCHANT';
-      merchantData: Omit<z.infer<typeof createMerchantRecordSchema>, 'userId'>;
-    }
   | { type: 'SUBMIT_AMOUNT_TRANSFORMATION_FACTOR'; factor: number }
   | { type: 'SUBMIT_COLUMN_FIELD_MAP'; columnFieldMap: ColumnFieldMap }
-  | {
-      type: 'SET_CONFIRMED_FILE_DATA';
-      confirmedFileData: BulkCreateTransactionRecord;
-    }
-  | {
-      type: 'SUBMIT_TRANSACTION_DATA_WITH_MERCHANT_IDS';
-      normalizedDataWithMerchantIDs: BulkCreateTransactionRecord;
-    };
+  | { type: 'EXIT_WIZARD' };
 
 type ClosureComponent = React.FC<{
   send: (event: BulkTransactionInputMachineEvents) => void;
@@ -90,25 +71,6 @@ export const bulkTransactionInputMachine = setup({
   },
   actors: {
     getAccounts: fromPromise(getAccounts),
-    getMerchants: fromPromise(getMerchants),
-    createMerchant: fromPromise(
-      async ({
-        input,
-      }: {
-        input: { title?: string; description?: string | null };
-      }) => {
-        // if (!input.title)
-        //   return { status: 400, statusText: 'No title provided' };
-        const formData = new FormData();
-        if (input.title) formData.set('title', input.title);
-        if (input.description) formData.set('description', input.description);
-
-        const { data, error } = await createMerchant(formData);
-
-        if (error) return Promise.reject(error);
-        return Promise.resolve(data);
-      }
-    ),
     createNewAccount: fromPromise(
       async ({ input: { formData } }: { input: { formData: FormData } }) => {
         return await createAccount(formData);
@@ -130,10 +92,9 @@ export const bulkTransactionInputMachine = setup({
     // initialize the component context so we don't need to add a conditional render check in the JSX
     StateUI: CollectTransactionFile,
     accounts: [],
-    merchants: [],
     currentRowIndex: 0,
-    confirmedFileData: [],
     amountTransformationFactor: 100,
+    normalizedTransactionData: [],
   },
   initial: 'collectTransactionFile',
   states: {
@@ -266,183 +227,56 @@ export const bulkTransactionInputMachine = setup({
               amountTransformationFactor: event.factor,
             })),
           ],
-          target: 'fetchMerchants',
+          target: 'normalizeTransactionData',
         },
       },
     },
 
-    // TODO: consider integrating an onError handler
-    fetchMerchants: {
-      invoke: {
-        src: 'getMerchants',
-        onDone: {
-          actions: [assign(({ event }) => ({ merchants: event.output.data }))],
-          target: 'matchMerchantsToTransactions',
-        },
-        onError: 'collectTransactionFile',
-      },
-    },
+    // normalize the data from the CSV file ahead of posting to the endpoint
+    normalizeTransactionData: {
+      always: {
+        actions: [
+          assign(({ context }) => {
+            if (
+              !context.columnFieldMap ||
+              !context.accountId ||
+              !context.parsedFileData?.bodyRows
+            ) {
+              // TODO: consider adding more robust error handling here
+              // (although it's likely not necessary because the state machine is robust)
+              return {};
+            }
 
-    createMerchant: {
-      invoke: {
-        src: 'createMerchant',
-        input: ({ context }) => {
-          return {
-            title: context.newMerchant?.title,
-          };
-        },
-        onDone: {
-          target: 'fetchMerchants',
-          actions: [
-            assign(({ context, event }) => {
-              if (
-                typeof event.output?.id === 'undefined' ||
-                typeof context.accountId === 'undefined' ||
-                typeof context.parsedFileData === 'undefined' ||
-                typeof context.currentRowIndex === 'undefined' ||
-                typeof context.columnFieldMap === 'undefined'
-              )
-                return {};
-              const merchantId = event.output.id;
+            const normalizedData = [] as BulkCreateTransactionRecord;
 
-              const { parsedFileData, columnFieldMap, currentRowIndex } =
-                context;
-
-              const newEntry = {
-                // remove the dollar sign, convert cents to dollars, then wipe out any decimal cents and coerce to an integer
+            for (const row of context.parsedFileData.bodyRows) {
+              normalizedData.push({
+                accountId: context.accountId,
                 amount: parseInt(
                   (
                     Number(
-                      parsedFileData.bodyRows[currentRowIndex][
-                        columnFieldMap.amount
-                      ].replace(/[$]/i, '')
-                    ) * context.amountTransformationFactor
+                      row[context.columnFieldMap.amount].replace(/[$]/i, '')
+                    ) * 100
                   ).toFixed(0)
                 ),
-                accountId: context.accountId,
-                merchantId,
-                description:
-                  parsedFileData.bodyRows[currentRowIndex][
-                    columnFieldMap.description
-                  ],
-                postedAt: new Date(
-                  parsedFileData.bodyRows[currentRowIndex][
-                    columnFieldMap.clearedAt
-                  ]
-                ),
-                transactedAt: columnFieldMap.transactedAt
-                  ? new Date(
-                      parsedFileData.bodyRows[currentRowIndex][
-                        columnFieldMap.transactedAt
-                      ]
-                    )
+                description: null,
+                merchantDescription: row[context.columnFieldMap.description],
+                postedAt: new Date(row[context.columnFieldMap.clearedAt]),
+                transactedAt: context.columnFieldMap.transactedAt
+                  ? new Date(row[context.columnFieldMap.transactedAt])
                   : null,
-              };
+              });
+            }
 
-              const newData = [...context.confirmedFileData];
-              if (currentRowIndex === newData.length) {
-                newData.push(newEntry);
-              } else {
-                newData.splice(currentRowIndex, 1, newEntry);
-              }
-              return {
-                confirmedFileData: newData,
-              };
-            }),
-          ],
-        },
-        onError: 'matchMerchantsToTransactions',
-      },
-      exit: assign(() => ({
-        newMerchant: undefined,
-      })),
-    },
-
-    matchMerchantsToTransactions: {
-      entry: [
-        assign(({ context }) => ({
-          StateUI: ({ send }) =>
-            MerchantSelector({
-              send,
-              confirmedFileData: context.confirmedFileData,
-              currentRowIndex: context.currentRowIndex,
-              merchants: context.merchants,
-              // NOTE: asserted because we've validated the data earlier in the state machine lifecycle
-              accountId: context.accountId!,
-              // NOTE: asserted because we've validated the data earlier in the state machine lifecycle
-              parsedFileData: context.parsedFileData!,
-              // NOTE: asserted because we've validated the data earlier in the state machine lifecycle
-              columnFieldMap: context.columnFieldMap!,
-            }),
-        })),
-      ],
-      on: {
-        SUBMIT_TRANSACTION_DATA_WITH_MERCHANT_IDS: {
-          actions: [
-            assign(({ event }) => ({
-              normalizedDataWithMerchantIDs:
-                event.normalizedDataWithMerchantIDs,
-            })),
-          ],
-          target: 'bulkCreateTransactions',
-        },
-        CREATE_MERCHANT: {
-          actions: [
-            assign(({ event }) => ({
-              newMerchant: {
-                title: event.merchantData.title,
-                description: event.merchantData.description,
-              },
-            })),
-          ],
-          target: 'createMerchant',
-        },
-        SET_CONFIRMED_FILE_DATA: {
-          actions: [
-            assign({
-              confirmedFileData: ({ event }) => {
-                return event.confirmedFileData;
-              },
-            }),
-          ],
-          target: 'matchMerchantsToTransactions',
-          reenter: true,
-        },
-        DECREMENT_ROW: {
-          actions: [
-            assign({
-              currentRowIndex: ({ context }) => {
-                if (context.currentRowIndex > 0)
-                  return context.currentRowIndex - 1;
-                return context.currentRowIndex;
-              },
-            }),
-          ],
-          target: 'matchMerchantsToTransactions',
-          reenter: true,
-        },
-        INCREMENT_ROW: {
-          actions: [
-            assign({
-              currentRowIndex: ({ context }) => {
-                if (
-                  context.currentRowIndex + 1 <
-                  (context.parsedFileData?.bodyRows.length ?? 0)
-                )
-                  return context.currentRowIndex + 1;
-                return context.currentRowIndex;
-              },
-            }),
-          ],
-          target: 'matchMerchantsToTransactions',
-          reenter: true,
-        },
+            return { normalizedTransactionData: normalizedData };
+          }),
+        ],
+        target: 'bulkCreateTransactions',
       },
     },
 
     bulkCreateTransactions: {
       // TODO: consider adding some loading UI upon entry
-      // TODO: consider adding an error state if this fails for some reason
       invoke: {
         src: 'bulkCreateTransactions',
         input: ({ context }) => ({

@@ -47,23 +47,25 @@ model Merchant {
 }
 
 model Transaction {
-  id           String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  user         User                    @relation(fields: [userId], references: [id])
-  userId       String                  @db.Uuid
-  account      Account?                @relation(fields: [accountId], references: [id])
-  accountId    String?                 @db.Uuid
-  merchant     Merchant                @relation(fields: [merchantId], references: [id])
-  merchantId   String                  @db.Uuid
-  amount       Int
-  description  String?
-  postedAt     DateTime
-  transactedAt DateTime?
-  createdAt    DateTime                @default(now())
-  categories   TransactionByCategory[]
+  id                  String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user                User                    @relation(fields: [userId], references: [id])
+  userId              String                  @db.Uuid
+  account             Account?                @relation(fields: [accountId], references: [id])
+  accountId           String?                 @db.Uuid
+  merchant            Merchant?               @relation(fields: [merchantId], references: [id])
+  merchantId          String?                 @db.Uuid
+  merchantDescription String?
+  amount              Int
+  description         String?
+  postedAt            DateTime
+  transactedAt        DateTime?
+  createdAt           DateTime                @default(now())
+  categories          TransactionByCategory[]
 
   @@index([userId])
   @@index([accountId])
   @@index([merchantId])
+  @@index([merchantDescription])
 }
 
 model Category {
