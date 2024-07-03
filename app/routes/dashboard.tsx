@@ -76,6 +76,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       amount: true,
       postedAt: true,
       merchant: { select: { title: true } },
+      merchantDescription: true,
       account: { select: { title: true } },
     },
     // only fetch the top 10 records
@@ -171,7 +172,8 @@ export default function Index() {
                   <td className="table-cell px-4 py-4">
                     <a href={`/transaction/${row.id}`}>
                       <p className="text-lg font-medium">
-                        {row.merchant.title}
+                        {(row.merchant && row.merchant.title) ??
+                          row.merchantDescription}
                       </p>
                       <p className="text-xs text-slate-500">
                         {row.account?.title}

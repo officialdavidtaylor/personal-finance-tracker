@@ -24,7 +24,8 @@ async function main() {
         postedAt: Date;
         transactedAt: Date | null;
         accountId: string;
-        merchantId: string;
+        merchantId?: string;
+        merchantDescription?: string;
       }[],
     });
   }
@@ -59,6 +60,7 @@ async function main() {
         transactedAt: null,
         accountId: profile.accounts[Math.floor(Math.random() * 10)].id,
         merchantId: profile.merchants[Math.floor(Math.random() * 10)].id,
+        merchantDescription: faker.finance.transactionDescription(),
       });
     }
   }
@@ -109,6 +111,7 @@ async function main() {
           id: faker.string.uuid(),
           amount: transaction.amount,
           merchantId: transaction.merchantId,
+          merchantDescription: transaction.merchantDescription,
           accountId: transaction.accountId,
           postedAt: transaction.postedAt,
           transactedAt: transaction.transactedAt,
