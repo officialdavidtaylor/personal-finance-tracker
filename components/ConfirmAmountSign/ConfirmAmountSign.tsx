@@ -107,11 +107,11 @@ export const ConfirmAmountSign = ({
         className="flex flex-col gap-8"
       >
         <div className="flex flex-col gap-2">
-          <div className="flex items-center gap-2">
+          <label className="flex items-center gap-2 font-semibold text-cyan-600">
             <input
-              {...register('negate')}
               type="checkbox"
-              onChange={() =>
+              {...register('negate')}
+              onInput={() =>
                 setTableData((data) =>
                   data.map((row) => {
                     // invert number sign:
@@ -137,10 +137,8 @@ export const ConfirmAmountSign = ({
               }
               className="form-checkbox rounded-md border-2 border-gray-400 bg-white text-cyan-600 outline-none ring-offset-1 focus-within:ring-2 focus-within:ring-cyan-500 focus:border-gray-400"
             />
-            <label htmlFor="negate" className="font-semibold text-cyan-600">
-              Negate amounts
-            </label>
-          </div>
+            Negate amounts
+          </label>
           {errors.negate && (
             <p
               aria-live="assertive"
