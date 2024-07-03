@@ -256,7 +256,7 @@ export const bulkTransactionInputMachine = setup({
                   (
                     Number(
                       row[context.columnFieldMap.amount].replace(/[$]/i, '')
-                    ) * 100
+                    ) * context.amountTransformationFactor
                   ).toFixed(0)
                 ),
                 description: null,
